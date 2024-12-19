@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
 
 // Export the handler function for Netlify
 exports.handler = async (event, context) => {
@@ -7,7 +7,7 @@ exports.handler = async (event, context) => {
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
   const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN; // Private app token
 
-  const { contactId } = event.queryStringParameters; // Update to use contactId
+  const { contactId } = event.queryStringParameters;
 
   if (!contactId) {
     return {
@@ -39,21 +39,15 @@ exports.handler = async (event, context) => {
         {
           filters: [
             {
-              propertyName: "fullname", // Full Name field in HubSpot
+              propertyName: "fullname", // Ensure this property exists
               operator: "EQ",
               value: contactId,
             },
           ],
         },
       ],
-      properties: [
-        "firstname",
-        "lastname",
-        "email",
-        "phone",
-        "hs_object_id", // HubSpot unique ID
-      ],
-      limit: 50, // Adjust limit as needed
+      properties: ["firstname", "lastname", "email", "phone", "hs_object_id"],
+      limit: 50,
     };
 
     const hubspotResponse = await fetch(hubspotSearchUrl, {
@@ -65,11 +59,15 @@ exports.handler = async (event, context) => {
       body: JSON.stringify(hubspotSearchPayload),
     });
 
+    // Debugging response from HubSpot
+    const hubspotResponseText = await hubspotResponse.text();
+    console.log("HubSpot API Response:", hubspotResponseText);
+
     if (!hubspotResponse.ok) {
-      throw new Error("Failed to fetch records from HubSpot.");
+      throw new Error(`Failed to fetch records from HubSpot. Response: ${hubspotResponseText}`);
     }
 
-    const hubspotData = await hubspotResponse.json();
+    const hubspotData = JSON.parse(hubspotResponseText);
 
     // Combine Airtable and HubSpot records
     const combinedRecords = [
