@@ -1,10 +1,11 @@
 const fetch = require('node-fetch');
 
 exports.handler = async (event, context) => {
-  const hubspotApiKey = 'pat-eu1-7db99493-9362-4987-9551-9021c309a6ea';
-  const hubspotPortalId = '144666820';
-  const airtableApiKey = 'pat31Rx6dxZsbexBc.3227ebbc64cdb5888b6e3a628edebba82c42e8534bee68921887fbfd27434728';
-  const airtableBaseId = 'appTMYAU4N43eJdxG';
+  const hubspotApiKey = process.env.HUBSPOT_API_KEY;
+  const hubspotPortalId = process.env.HUBSPOT_PORTAL_ID;
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
+  const airtableTableId = process.env.AIRTABLE_TABLE_ID;
 
   const { recordId, email } = event.queryStringParameters;
 
@@ -52,7 +53,6 @@ exports.handler = async (event, context) => {
       const hubspotId = searchData.results[0].id;
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/${hubspotPortalId}/contact/${hubspotId}`;
 
-      // Update Airtable record - only updating HubSpot ID and URL
       const updateData = {
         fields: {
           'HubSpot ID': hubspotId,
@@ -60,7 +60,7 @@ exports.handler = async (event, context) => {
         }
       };
 
-      const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/tblUx9VGA0rxLmidU/${recordId}`, {
+      const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${recordId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${airtableApiKey}`,
