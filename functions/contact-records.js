@@ -56,18 +56,72 @@ exports.handler = async (event, context) => {
 
     const airtableData = await airtableResponse.json();
 
+    // Fetch matching records from HubSpot based on Full Name
+    const hubspotSearchUrl = `https://api.hubapi.com/crm/v3/objects/contacts/search`;
+    const hubspotSearchPayload = {
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: "firstname",
+              operator: "EQ",
+              value: contactId.split(" ")[0], // Extract first name
+            },
+            {
+              propertyName: "lastname",
+              operator: "EQ",
+              value: contactId.split(" ")[1], // Extract last name
+            },
+          ],
+        },
+      ],
+      properties: ["firstname", "lastname", "email", "phone", "hs_object_id"],
+      limit: 50,
+    };
+
+    const hubspotResponse = await fetch(hubspotSearchUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${hubspotAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(hubspotSearchPayload),
+    });
+
+    const hubspotResponseText = await hubspotResponse.text();
+    if (!hubspotResponse.ok) {
+      throw new Error(`Failed to fetch records from HubSpot. Response: ${hubspotResponseText}`);
+    }
+
+    const hubspotData = JSON.parse(hubspotResponseText);
+
     // Filter Airtable fields based on the list of fields to show
     const filteredAirtableRecords = airtableData.records.map((record) => {
       const filteredFields = {};
-      airtableFieldsToShow.forEach(({ airtableField }) => {
+      airtableFieldsToShow.forEach(({ airtableField, displayName }) => {
         if (record.fields[airtableField]) {
-          filteredFields[airtableField] = record.fields[airtableField];
+          filteredFields[displayName] = record.fields[airtableField];
         }
       });
       return { source: "Airtable", fields: filteredFields, id: record.id };
     });
 
-    // Render the filtered Airtable records
+    // Format HubSpot records
+    const hubspotRecords = hubspotData.results.map((result) => ({
+      source: "HubSpot",
+      fields: {
+        "Full Name": `${result.properties.firstname || "N/A"} ${result.properties.lastname || "N/A"}`,
+        "Email": result.properties.email || "N/A",
+        "Phone": result.properties.phone || "N/A",
+        "HubSpot ID": result.id,
+      },
+      id: result.id,
+    }));
+
+    // Combine Airtable and HubSpot records
+    const combinedRecords = [...filteredAirtableRecords, ...hubspotRecords];
+
+    // Render the combined records
     const htmlTemplate = `
       <html>
         <head>
@@ -78,16 +132,18 @@ exports.handler = async (event, context) => {
             .record { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px; }
             .record:hover { background-color: #f8f9fa; }
             .field-name { font-weight: bold; color: #666; }
+            .source { font-size: 12px; color: #888; }
           </style>
         </head>
         <body>
           <div class="container">
             <h2 class="header">Matching Records for "${contactId}"</h2>
-            ${filteredAirtableRecords.length
-              ? filteredAirtableRecords
+            ${combinedRecords.length
+              ? combinedRecords
                   .map(
                     (record) => `
                 <div class="record">
+                  <div class="source">Source: ${record.source}</div>
                   ${Object.entries(record.fields)
                     .map(
                       ([key, value]) => `
