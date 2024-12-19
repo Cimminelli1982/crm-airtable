@@ -83,7 +83,7 @@ exports.handler = async (event, context) => {
       }
 
       // Update Airtable record
-      const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/CONTACTS/${recordId}`, {
+      const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/tblUx9VGA0rxLmidU/${recordId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${airtableApiKey}`,
