@@ -32,16 +32,21 @@ exports.handler = async (event, context) => {
 
     const airtableData = await airtableResponse.json();
 
-    // Fetch matching records from HubSpot based on Full Name
+    // HubSpot search using firstname and lastname
     const hubspotSearchUrl = `https://api.hubapi.com/crm/v3/objects/contacts/search`;
     const hubspotSearchPayload = {
       filterGroups: [
         {
           filters: [
             {
-              propertyName: "fullname", // Ensure this property exists
+              propertyName: "firstname",
               operator: "EQ",
-              value: contactId,
+              value: contactId.split(" ")[0], // Extract first name
+            },
+            {
+              propertyName: "lastname",
+              operator: "EQ",
+              value: contactId.split(" ")[1], // Extract last name
             },
           ],
         },
@@ -49,6 +54,9 @@ exports.handler = async (event, context) => {
       properties: ["firstname", "lastname", "email", "phone", "hs_object_id"],
       limit: 50,
     };
+
+    // Debugging payload
+    console.log("HubSpot Payload:", JSON.stringify(hubspotSearchPayload, null, 2));
 
     const hubspotResponse = await fetch(hubspotSearchUrl, {
       method: "POST",
@@ -59,7 +67,6 @@ exports.handler = async (event, context) => {
       body: JSON.stringify(hubspotSearchPayload),
     });
 
-    // Debugging response from HubSpot
     const hubspotResponseText = await hubspotResponse.text();
     console.log("HubSpot API Response:", hubspotResponseText);
 
