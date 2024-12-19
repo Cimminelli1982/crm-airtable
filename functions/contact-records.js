@@ -5,9 +5,49 @@ exports.handler = async (event, context) => {
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
+  const hubspotApiKey = process.env.HUBSPOT_API_KEY;
+  const hubspotPortalId = process.env.HUBSPOT_PORTAL_ID;
 
-  const { contactId } = event.queryStringParameters;
+  const { contactId, action, airtableId, hubspotId } = event.queryStringParameters;
 
+  // Delete action handler
+  if (action === "delete" && airtableId && hubspotId) {
+    try {
+      // Delete from Airtable
+      const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${airtableId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${airtableApiKey}`,
+        },
+      });
+      if (!airtableResponse.ok) {
+        throw new Error("Failed to delete record from Airtable.");
+      }
+
+      // Delete from HubSpot
+      const hubspotResponse = await fetch(`https://api.hubapi.com/contacts/v1/contact/vid/${hubspotId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${hubspotApiKey}`,
+        },
+      });
+      if (!hubspotResponse.ok) {
+        throw new Error("Failed to delete record from HubSpot.");
+      }
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: "Record deleted successfully" }),
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: `Error deleting record: ${error.message}` }),
+      };
+    }
+  }
+
+  // Main record fetching and rendering logic
   const fieldsToShow = [
     { airtableField: "Name", displayName: "Name" },
     { airtableField: "Surname", displayName: "Surname" },
@@ -25,12 +65,10 @@ exports.handler = async (event, context) => {
     { airtableField: "Linkedin adjusted", displayName: "Linkedin" },
     { airtableField: "City", displayName: "City" },
     { airtableField: "Rating", displayName: "Rating" },
-    { airtableField: "Last contact", displayName: "Last contact" },
     { airtableField: "Next Keep in touch", displayName: "Next Birthday" },
     { airtableField: "Birthday wishes", displayName: "Birthday wishes" },
     { airtableField: "Christmas wishes", displayName: "Christmas wishes" },
     { airtableField: "Easter wishes", displayName: "Easter wishes" },
-    { airtableField: "Contact Airtable ID", displayName: "Contact Airtable ID" },
   ];
 
   const htmlTemplate = (records, error = null) => `
@@ -65,12 +103,37 @@ exports.handler = async (event, context) => {
             font-weight: bold;
             color: #666;
           }
+          .delete-btn {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+          }
+          .delete-btn:hover {
+            background-color: #c82333;
+          }
           .error {
             color: #dc3545;
             padding: 20px;
             text-align: center;
           }
         </style>
+        <script>
+          function deleteRecord(airtableId, hubspotId) {
+            if (confirm("Are you sure you want to delete this record?")) {
+              fetch(\`?action=delete&airtableId=\${airtableId}&hubspotId=\${hubspotId}\`, { method: "GET" })
+                .then(response => response.json())
+                .then(data => {
+                  alert(data.message);
+                  window.location.reload();
+                })
+                .catch(error => alert("Error deleting record: " + error.message));
+            }
+          }
+        </script>
       </head>
       <body>
         <div class="container">
@@ -88,6 +151,7 @@ exports.handler = async (event, context) => {
                       : record.fields[airtableField] || "N/A"}</span>
                   </div>
                 `).join('')}
+                <button class="delete-btn" onclick="deleteRecord('${record.id}', '${record.fields['HubSpot ID']}')">Delete</button>
               </div>
             `).join('')}
           `}
@@ -100,7 +164,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 400,
       headers: { 'Content-Type': 'text/html' },
-      body: htmlTemplate([], 'Contact ID is required')
+      body: htmlTemplate([], 'Contact ID is required'),
     };
   }
 
@@ -108,13 +172,12 @@ exports.handler = async (event, context) => {
     const searchUrl = `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}?filterByFormula={Contact}="${contactId}"`;
     const response = await fetch(searchUrl, {
       headers: {
-        'Authorization': `Bearer ${airtableApiKey}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${airtableApiKey}`,
+      },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch records from Airtable');
+      throw new Error("Failed to fetch records from Airtable.");
     }
 
     const data = await response.json();
@@ -122,14 +185,13 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html' },
-      body: htmlTemplate(data.records)
+      body: htmlTemplate(data.records),
     };
-
   } catch (error) {
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'text/html' },
-      body: htmlTemplate([], `Error: ${error.message}`)
+      body: htmlTemplate([], `Error: ${error.message}`),
     };
   }
 };
