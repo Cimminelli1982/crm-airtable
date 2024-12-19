@@ -5,8 +5,7 @@ exports.handler = async (event, context) => {
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
-  const hubspotApiKey = process.env.HUBSPOT_API_KEY;
-  const hubspotPortalId = process.env.HUBSPOT_PORTAL_ID;
+  const hubspotApiKey = process.env.NEW_HUBSPOT_API_KEY; // Use the new key here
 
   const { contactId, action, airtableId, hubspotId } = event.queryStringParameters;
 
@@ -25,14 +24,13 @@ exports.handler = async (event, context) => {
       }
 
       // Delete from HubSpot
-      const hubspotResponse = await fetch(`https://api.hubapi.com/contacts/v1/contact/vid/${hubspotId}`, {
+      const hubspotResponse = await fetch(`https://api.hubapi.com/contacts/v1/contact/vid/${hubspotId}?hapikey=${hubspotApiKey}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${hubspotApiKey}`,
-        },
       });
+
+      const hubspotResponseText = await hubspotResponse.text();
       if (!hubspotResponse.ok) {
-        throw new Error("Failed to delete record from HubSpot.");
+        throw new Error(`Failed to delete record from HubSpot. Response: ${hubspotResponseText}`);
       }
 
       return {
@@ -124,7 +122,7 @@ exports.handler = async (event, context) => {
         <script>
           function deleteRecord(airtableId, hubspotId) {
             if (confirm("Are you sure you want to delete this record?")) {
-              fetch(\`?action=delete&airtableId=\${airtableId}&hubspotId=\${hubspotId}\`, { method: "GET" })
+              fetch(`?action=delete&airtableId=${airtableId}&hubspotId=${hubspotId}`, { method: "GET" })
                 .then(response => response.json())
                 .then(data => {
                   alert(data.message);
