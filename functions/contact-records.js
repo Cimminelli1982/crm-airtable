@@ -161,16 +161,14 @@ exports.handler = async (event, context) => {
       id: result.id,
     }));
 
-    const combinedRecords = [...filteredAirtableRecords, ...hubspotRecords];
-
     // Render HTML
     const htmlTemplate = `
       <html>
         <head>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f0f0; }
-            .container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .header { color: #333; margin-bottom: 20px; }
+            .container { display: flex; }
+            .column { flex: 1; margin-right: 20px; }
             .record { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px; }
             .record:hover { background-color: #f8f9fa; }
             .field-name { font-weight: bold; color: #666; }
@@ -193,29 +191,54 @@ exports.handler = async (event, context) => {
         </head>
         <body>
           <div class="container">
-            <h2 class="header">Matching Records for "${contactId}"</h2>
-            ${combinedRecords.length
-              ? combinedRecords
-                  .map(
-                    (record) => `
-                <div class="record">
-                  <div class="source">Source: ${record.source}</div>
-                  ${Object.entries(record.fields)
+            <div class="column">
+              <h2>Airtable Records</h2>
+              ${filteredAirtableRecords.length
+                ? filteredAirtableRecords
                     .map(
-                      ([key, value]) => `
-                    <div>
-                      <span class="field-name">${key}:</span> 
-                      <span>${value}</span>
-                    </div>
-                  `
+                      (record) => `
+                  <div class="record">
+                    ${Object.entries(record.fields)
+                      .map(
+                        ([key, value]) => `
+                      <div>
+                        <span class="field-name">${key}:</span> 
+                        <span>${value}</span>
+                      </div>
+                    `
+                      )
+                      .join("")}
+                    <button class="delete-btn" onclick="deleteRecord('Airtable', '${record.id}')">Delete</button>
+                  </div>
+                `
                     )
-                    .join("")}
-                  <button class="delete-btn" onclick="deleteRecord('${record.source}', '${record.id}')">Delete</button>
-                </div>
-              `
-                  )
-                  .join("")
-              : "<div>No matching records found.</div>"}
+                    .join("")
+                : "<div>No Airtable records found.</div>"}
+            </div>
+            <div class="column">
+              <h2>HubSpot Records</h2>
+              ${hubspotRecords.length
+                ? hubspotRecords
+                    .map(
+                      (record) => `
+                  <div class="record">
+                    ${Object.entries(record.fields)
+                      .map(
+                        ([key, value]) => `
+                      <div>
+                        <span class="field-name">${key}:</span> 
+                        <span>${value}</span>
+                      </div>
+                    `
+                      )
+                      .join("")}
+                    <button class="delete-btn" onclick="deleteRecord('HubSpot', '${record.id}')">Delete</button>
+                  </div>
+                `
+                    )
+                    .join("")
+                : "<div>No HubSpot records found.</div>"}
+            </div>
           </div>
         </body>
       </html>
