@@ -7,8 +7,57 @@ exports.handler = async (event, context) => {
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
   const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN; // Private app token
 
-  const { contactId } = event.queryStringParameters;
+  const { contactId, action, source, recordId } = event.queryStringParameters;
 
+  // Handle delete requests
+  if (action === "delete" && source && recordId) {
+    try {
+      if (source === "Airtable") {
+        // Delete from Airtable
+        const airtableResponse = await fetch(
+          `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${recordId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${airtableApiKey}`,
+            },
+          }
+        );
+
+        if (!airtableResponse.ok) {
+          throw new Error("Failed to delete record from Airtable.");
+        }
+      } else if (source === "HubSpot") {
+        // Delete from HubSpot
+        const hubspotResponse = await fetch(
+          `https://api.hubapi.com/crm/v3/objects/contacts/${recordId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${hubspotAccessToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!hubspotResponse.ok) {
+          throw new Error("Failed to delete record from HubSpot.");
+        }
+      }
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: "Record deleted successfully" }),
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: `Error deleting record: ${error.message}` }),
+      };
+    }
+  }
+
+  // Main functionality: Fetch records
   if (!contactId) {
     return {
       statusCode: 400,
@@ -17,7 +66,6 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Define the fields to show for Airtable
   const airtableFieldsToShow = [
     { airtableField: "Name", displayName: "Name" },
     { airtableField: "Surname", displayName: "Surname" },
@@ -42,12 +90,10 @@ exports.handler = async (event, context) => {
   ];
 
   try {
-    // Fetch matching records from Airtable using the `Contact` field
+    // Fetch matching records from Airtable
     const airtableSearchUrl = `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}?filterByFormula={Contact}="${contactId}"`;
     const airtableResponse = await fetch(airtableSearchUrl, {
-      headers: {
-        Authorization: `Bearer ${airtableApiKey}`,
-      },
+      headers: { Authorization: `Bearer ${airtableApiKey}` },
     });
 
     if (!airtableResponse.ok) {
@@ -56,7 +102,17 @@ exports.handler = async (event, context) => {
 
     const airtableData = await airtableResponse.json();
 
-    // Fetch matching records from HubSpot based on Full Name
+    const filteredAirtableRecords = airtableData.records.map((record) => {
+      const filteredFields = {};
+      airtableFieldsToShow.forEach(({ airtableField, displayName }) => {
+        if (record.fields[airtableField]) {
+          filteredFields[displayName] = record.fields[airtableField];
+        }
+      });
+      return { source: "Airtable", fields: filteredFields, id: record.id };
+    });
+
+    // Fetch matching records from HubSpot
     const hubspotSearchUrl = `https://api.hubapi.com/crm/v3/objects/contacts/search`;
     const hubspotSearchPayload = {
       filterGroups: [
@@ -65,12 +121,12 @@ exports.handler = async (event, context) => {
             {
               propertyName: "firstname",
               operator: "EQ",
-              value: contactId.split(" ")[0], // Extract first name
+              value: contactId.split(" ")[0],
             },
             {
               propertyName: "lastname",
               operator: "EQ",
-              value: contactId.split(" ")[1], // Extract last name
+              value: contactId.split(" ")[1],
             },
           ],
         },
@@ -88,25 +144,12 @@ exports.handler = async (event, context) => {
       body: JSON.stringify(hubspotSearchPayload),
     });
 
-    const hubspotResponseText = await hubspotResponse.text();
     if (!hubspotResponse.ok) {
-      throw new Error(`Failed to fetch records from HubSpot. Response: ${hubspotResponseText}`);
+      throw new Error("Failed to fetch records from HubSpot.");
     }
 
-    const hubspotData = JSON.parse(hubspotResponseText);
+    const hubspotData = await hubspotResponse.json();
 
-    // Filter Airtable fields based on the list of fields to show
-    const filteredAirtableRecords = airtableData.records.map((record) => {
-      const filteredFields = {};
-      airtableFieldsToShow.forEach(({ airtableField, displayName }) => {
-        if (record.fields[airtableField]) {
-          filteredFields[displayName] = record.fields[airtableField];
-        }
-      });
-      return { source: "Airtable", fields: filteredFields, id: record.id };
-    });
-
-    // Format HubSpot records
     const hubspotRecords = hubspotData.results.map((result) => ({
       source: "HubSpot",
       fields: {
@@ -118,10 +161,9 @@ exports.handler = async (event, context) => {
       id: result.id,
     }));
 
-    // Combine Airtable and HubSpot records
     const combinedRecords = [...filteredAirtableRecords, ...hubspotRecords];
 
-    // Render the combined records
+    // Render HTML
     const htmlTemplate = `
       <html>
         <head>
@@ -132,8 +174,22 @@ exports.handler = async (event, context) => {
             .record { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px; }
             .record:hover { background-color: #f8f9fa; }
             .field-name { font-weight: bold; color: #666; }
-            .source { font-size: 12px; color: #888; }
+            .delete-btn { margin-top: 10px; padding: 8px 12px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            .delete-btn:hover { background-color: #c82333; }
           </style>
+          <script>
+            function deleteRecord(source, recordId) {
+              if (confirm("Are you sure you want to delete this record?")) {
+                fetch(\`?action=delete&source=\${source}&recordId=\${recordId}\`, { method: "GET" })
+                  .then(response => response.json())
+                  .then(data => {
+                    alert(data.message);
+                    window.location.reload();
+                  })
+                  .catch(error => alert("Error deleting record: " + error.message));
+              }
+            }
+          </script>
         </head>
         <body>
           <div class="container">
@@ -154,6 +210,7 @@ exports.handler = async (event, context) => {
                   `
                     )
                     .join("")}
+                  <button class="delete-btn" onclick="deleteRecord('${record.source}', '${record.id}')">Delete</button>
                 </div>
               `
                   )
@@ -170,7 +227,6 @@ exports.handler = async (event, context) => {
       body: htmlTemplate,
     };
   } catch (error) {
-    console.error("Error fetching records:", error.message);
     return {
       statusCode: 500,
       headers: { "Content-Type": "text/html" },
