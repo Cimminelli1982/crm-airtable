@@ -5,7 +5,7 @@ exports.handler = async (event, context) => {
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
-  const hubspotApiKey = process.env.NEW_HUBSPOT_API_KEY; // Updated to NEW_HUBSPOT_API_KEY
+  const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN; // Store the private app token here
 
   const { contactId, action, airtableId, hubspotId } = event.queryStringParameters;
 
@@ -24,8 +24,12 @@ exports.handler = async (event, context) => {
       }
 
       // Delete from HubSpot
-      const hubspotResponse = await fetch(`https://api.hubapi.com/contacts/v1/contact/vid/${hubspotId}?hapikey=${hubspotApiKey}`, {
+      const hubspotResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${hubspotId}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${hubspotAccessToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
       const hubspotResponseText = await hubspotResponse.text();
