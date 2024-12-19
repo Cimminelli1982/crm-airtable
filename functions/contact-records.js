@@ -9,10 +9,12 @@ exports.handler = async (event, context) => {
 
   const { contactId, action, airtableId, hubspotId } = event.queryStringParameters;
 
-  // Delete action handler
-  if (action === "delete" && airtableId) {
+  if (action === "delete" && airtableId && hubspotId) {
     try {
-      // Validate HubSpot ID
+      // Log the HubSpot ID for debugging
+      console.log("HubSpot ID:", hubspotId);
+
+      // Check if the HubSpot ID is numeric
       if (!hubspotId || isNaN(hubspotId)) {
         throw new Error("Invalid HubSpot ID. It must be numeric.");
       }
@@ -131,7 +133,7 @@ exports.handler = async (event, context) => {
         <script>
           function deleteRecord(airtableId, hubspotId) {
             if (confirm("Are you sure you want to delete this record?")) {
-              fetch(`?action=delete&airtableId=${airtableId}&hubspotId=${hubspotId}`, { method: "GET" })
+              fetch(\`?action=delete&airtableId=\${airtableId}&hubspotId=\${hubspotId}\`, { method: "GET" })
                 .then(response => response.json())
                 .then(data => {
                   alert(data.message);
