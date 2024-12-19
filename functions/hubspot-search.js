@@ -9,10 +9,59 @@ exports.handler = async (event, context) => {
 
   const { recordId, email } = event.queryStringParameters;
 
+  const htmlTemplate = (message, isError = false) => `
+    <html>
+      <head>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+          }
+          .container {
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          .message {
+            color: ${isError ? '#dc3545' : '#28a745'};
+            margin-bottom: 20px;
+          }
+          .close-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+          }
+          .close-button:hover {
+            background-color: #0056b3;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <p class="message">${message}</p>
+          <button class="close-button" onclick="window.close()">Close this tab</button>
+        </div>
+      </body>
+    </html>
+  `;
+
   if (!email || !recordId) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Email and recordId parameters are required' })
+      headers: { 'Content-Type': 'text/html' },
+      body: htmlTemplate('Error: Email and recordId parameters are required', true)
     };
   }
 
@@ -71,29 +120,30 @@ exports.handler = async (event, context) => {
 
       if (!airtableResponse.ok) {
         const errorData = await airtableResponse.text();
-        throw new Error(`Failed to update Airtable: ${errorData}`);
+        return {
+          statusCode: 500,
+          headers: { 'Content-Type': 'text/html' },
+          body: htmlTemplate(`Error updating Airtable: ${errorData}`, true)
+        };
       }
 
       return {
         statusCode: 200,
-        body: JSON.stringify({
-          message: 'Successfully updated Airtable record',
-          fields: updateData.fields
-        })
+        headers: { 'Content-Type': 'text/html' },
+        body: htmlTemplate('Successfully updated Airtable record!')
       };
     } else {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'No matching HubSpot contact found' })
+        headers: { 'Content-Type': 'text/html' },
+        body: htmlTemplate('No matching HubSpot contact found', true)
       };
     }
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ 
-        error: error.message,
-        stack: error.stack
-      })
+      headers: { 'Content-Type': 'text/html' },
+      body: htmlTemplate(`Error: ${error.message}`, true)
     };
   }
 };
