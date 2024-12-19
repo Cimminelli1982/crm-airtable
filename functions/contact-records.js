@@ -5,13 +5,20 @@ exports.handler = async (event, context) => {
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
-  const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN; // Store the private app token here
+  const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN; // Private app token
 
   const { contactId, action, airtableId, hubspotId } = event.queryStringParameters;
 
-  // Delete action handler
   if (action === "delete" && airtableId && hubspotId) {
     try {
+      // Log the HubSpot ID for debugging
+      console.log("HubSpot ID:", hubspotId);
+
+      // Check if the HubSpot ID is numeric
+      if (isNaN(hubspotId)) {
+        throw new Error("Invalid HubSpot ID. It must be numeric.");
+      }
+
       // Delete from Airtable
       const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${airtableId}`, {
         method: "DELETE",
