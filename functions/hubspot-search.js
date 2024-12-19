@@ -1,6 +1,17 @@
 const fetch = require('node-fetch');
 
 exports.handler = async (event, context) => {
+  // Debug environment variables
+  const debug = {
+    hasHubspotKey: !!process.env.HUBSPOT_API_KEY,
+    hasHubspotPortal: !!process.env.HUBSPOT_PORTAL_ID,
+    hasAirtableKey: !!process.env.AIRTABLE_API_KEY,
+    hasAirtableBase: !!process.env.AIRTABLE_BASE_ID,
+    hasAirtableTable: !!process.env.AIRTABLE_TABLE_ID,
+    hubspotKeyLength: process.env.HUBSPOT_API_KEY ? process.env.HUBSPOT_API_KEY.length : 0,
+    params: event.queryStringParameters
+  };
+
   const hubspotApiKey = process.env.HUBSPOT_API_KEY;
   const hubspotPortalId = process.env.HUBSPOT_PORTAL_ID;
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
@@ -12,7 +23,10 @@ exports.handler = async (event, context) => {
   if (!email || !recordId) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Email and recordId parameters are required' })
+      body: JSON.stringify({ 
+        error: 'Email and recordId parameters are required',
+        debug
+      })
     };
   }
 
@@ -48,6 +62,7 @@ exports.handler = async (event, context) => {
     });
 
     const searchData = await searchResponse.json();
+    debug.searchResponse = searchData;
 
     if (searchData.total > 0) {
       const hubspotId = searchData.results[0].id;
@@ -78,13 +93,17 @@ exports.handler = async (event, context) => {
         statusCode: 200,
         body: JSON.stringify({
           message: 'Successfully updated Airtable record',
-          fields: updateData.fields
+          fields: updateData.fields,
+          debug
         })
       };
     } else {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'No matching HubSpot contact found' })
+        body: JSON.stringify({ 
+          error: 'No matching HubSpot contact found',
+          debug 
+        })
       };
     }
   } catch (error) {
@@ -92,7 +111,8 @@ exports.handler = async (event, context) => {
       statusCode: 500,
       body: JSON.stringify({ 
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        debug
       })
     };
   }
