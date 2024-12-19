@@ -1,37 +1,32 @@
 const fetch = require('node-fetch');
 
 exports.handler = async (event, context) => {
-  // Enable CORS
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET'
-      }
-    };
-  }
-
   const hubspotApiKey = 'pat-eu1-7db99493-9362-4987-9551-9021c309a6ea';
   const hubspotPortalId = '144666820';
   const airtableApiKey = 'pat31Rx6dxZsbexBc.3227ebbc64cdb5888b6e3a628edebba82c42e8534bee68921887fbfd27434728';
   const airtableBaseId = 'appTMYAU4N43eJdxG';
 
-  // Get record ID and email from query parameters
-  const { recordId, email } = event.queryStringParameters;
+  // Debug object to collect all relevant information
+  const debug = {
+    startTime: new Date().toISOString(),
+    queryParams: event.queryStringParameters,
+    steps: []
+  };
 
-  console.log('Query parameters:', { recordId, email });
+  const { recordId, email } = event.queryStringParameters;
 
   if (!email || !recordId) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Email and recordId parameters are required' })
+      body: JSON.stringify({ 
+        error: 'Email and recordId parameters are required',
+        debug
+      })
     };
   }
 
   try {
-    // Search for the contact in HubSpot
+    debug.steps.push('Starting HubSpot search');
     const searchResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
       method: 'POST',
       headers: {
@@ -63,12 +58,14 @@ exports.handler = async (event, context) => {
     });
 
     const searchData = await searchResponse.json();
+    debug.steps.push('HubSpot search completed');
+    debug.hubspotSearchResult = searchData;
 
     if (searchData.total > 0) {
       const hubspotId = searchData.results[0].id;
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/${hubspotPortalId}/contact/${hubspotId}`;
 
-      // Fetch additional emails
+      debug.steps.push('Fetching additional emails');
       const contactUrl = `https://api.hubapi.com/crm/v3/objects/contacts/${hubspotId}?properties=email,hs_additional_emails`;
       const contactResponse = await fetch(contactUrl, {
         method: 'GET',
@@ -92,11 +89,11 @@ exports.handler = async (event, context) => {
         }
       };
 
-      console.log('Attempting to update Airtable with:', updateData);
-      console.log('Update URL:', `https://api.airtable.com/v0/${airtableBaseId}/tblUx9VGA0rxLmidU/${recordId}`);
+      debug.steps.push('Attempting Airtable update');
+      debug.airtableUpdateUrl = `https://api.airtable.com/v0/${airtableBaseId}/tblUx9VGA0rxLmidU/${recordId}`;
+      debug.airtableUpdateData = updateData;
 
-      // Update Airtable record
-      const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/tblUx9VGA0rxLmidU/${recordId}`, {
+      const airtableResponse = await fetch(debug.airtableUpdateUrl, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${airtableApiKey}`,
@@ -106,34 +103,39 @@ exports.handler = async (event, context) => {
       });
 
       const airtableResult = await airtableResponse.text();
-      console.log('Airtable response status:', airtableResponse.status);
-      console.log('Airtable response:', airtableResult);
-
-      if (!airtableResponse.ok) {
-        throw new Error(`Failed to update Airtable: ${airtableResult}`);
-      }
+      debug.airtableResponseStatus = airtableResponse.status;
+      debug.airtableResponseText = airtableResult;
+      debug.steps.push('Airtable update completed');
 
       return {
         statusCode: 200,
         body: JSON.stringify({
-          message: 'Successfully updated Airtable record',
-          fields: updateData.fields,
-          airtableResponse: airtableResult
+          message: 'Operation completed',
+          hubspotData: {
+            id: hubspotId,
+            url: hubspotUrl,
+            allEmails: allEmails
+          },
+          debug: debug,
+          airtableUpdateSuccess: airtableResponse.ok
         })
       };
     } else {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'No matching HubSpot contact found' })
+        body: JSON.stringify({ 
+          error: 'No matching HubSpot contact found',
+          debug
+        })
       };
     }
   } catch (error) {
-    console.error('Error:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ 
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        debug
       })
     };
   }
