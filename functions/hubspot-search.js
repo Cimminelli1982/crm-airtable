@@ -21,6 +21,8 @@ exports.handler = async (event, context) => {
   // Get record ID and email from query parameters
   const { recordId, email } = event.queryStringParameters;
 
+  console.log('Query parameters:', { recordId, email });
+
   if (!email || !recordId) {
     return {
       statusCode: 400,
@@ -82,6 +84,17 @@ exports.handler = async (event, context) => {
         allEmails.push(...contactData.properties.hs_additional_emails.split(';'));
       }
 
+      const updateData = {
+        fields: {
+          'HubSpot ID': hubspotId,
+          'HubSpot URL': hubspotUrl,
+          'All Emails': allEmails.join(', ')
+        }
+      };
+
+      console.log('Attempting to update Airtable with:', updateData);
+      console.log('Update URL:', `https://api.airtable.com/v0/${airtableBaseId}/tblUx9VGA0rxLmidU/${recordId}`);
+
       // Update Airtable record
       const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/tblUx9VGA0rxLmidU/${recordId}`, {
         method: 'PATCH',
@@ -89,29 +102,23 @@ exports.handler = async (event, context) => {
           'Authorization': `Bearer ${airtableApiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          fields: {
-            'HubSpot ID': hubspotId,
-            'HubSpot URL': hubspotUrl,
-            'All Emails': allEmails.join(', ')
-          }
-        })
+        body: JSON.stringify(updateData)
       });
 
+      const airtableResult = await airtableResponse.text();
+      console.log('Airtable response status:', airtableResponse.status);
+      console.log('Airtable response:', airtableResult);
+
       if (!airtableResponse.ok) {
-        const errorData = await airtableResponse.json();
-        throw new Error(`Failed to update Airtable record: ${JSON.stringify(errorData)}`);
+        throw new Error(`Failed to update Airtable: ${airtableResult}`);
       }
 
       return {
         statusCode: 200,
         body: JSON.stringify({
           message: 'Successfully updated Airtable record',
-          fields: {
-            'HubSpot ID': hubspotId,
-            'HubSpot URL': hubspotUrl,
-            'allEmails': allEmails.join(', ')
-          }
+          fields: updateData.fields,
+          airtableResponse: airtableResult
         })
       };
     } else {
@@ -121,9 +128,13 @@ exports.handler = async (event, context) => {
       };
     }
   } catch (error) {
+    console.error('Error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({ 
+        error: error.message,
+        stack: error.stack
+      })
     };
   }
 };
