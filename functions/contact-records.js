@@ -7,7 +7,15 @@ exports.handler = async (event, context) => {
 
   const { contactId } = event.queryStringParameters;
 
-  const htmlTemplate = (records, error = null) => `
+  // Fields to display
+  const fieldsToShow = [
+    "Name", "Surname", "HubSpot ID", "Keep in touch", "Main category", "Job title",
+    "Company", "Keywords", "Mobile phone number", "Phone number (from timelines)",
+    "Primary email", "Linkedin", "City", "Rating", "Last contact", "Next Birthday",
+    "Birthday wishes", "Christmas wishes", "Easter wishes", "Contact Airtable ID"
+  ];
+
+  const htmlTemplate = (records, error = null, debugInfo = null) => `
     <html>
       <head>
         <style>
@@ -44,6 +52,12 @@ exports.handler = async (event, context) => {
             padding: 20px;
             text-align: center;
           }
+          .debug {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px dashed #ccc;
+            background-color: #f8f9fa;
+          }
         </style>
       </head>
       <body>
@@ -54,15 +68,21 @@ exports.handler = async (event, context) => {
             <h2 class="header">Matching Records</h2>
             ${records.map(record => `
               <div class="record">
-                ${Object.entries(record.fields).map(([key, value]) => `
+                ${fieldsToShow.map(field => `
                   <div>
-                    <span class="field-name">${key}:</span> 
-                    <span>${value}</span>
+                    <span class="field-name">${field}:</span> 
+                    <span>${record.fields[field] || "N/A"}</span>
                   </div>
                 `).join('')}
               </div>
             `).join('')}
           `}
+          ${debugInfo ? `
+            <div class="debug">
+              <h3>Debug Info</h3>
+              <pre>${JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          ` : ''}
         </div>
       </body>
     </html>
@@ -91,11 +111,11 @@ exports.handler = async (event, context) => {
     }
 
     const data = await response.json();
-    
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html' },
-      body: htmlTemplate(data.records)
+      body: htmlTemplate(data.records, null, data)
     };
 
   } catch (error) {
