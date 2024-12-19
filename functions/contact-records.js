@@ -9,55 +9,6 @@ exports.handler = async (event, context) => {
 
   const { contactId, action, source, recordId } = event.queryStringParameters;
 
-  // Handle delete requests
-  if (action === "delete" && source && recordId) {
-    try {
-      if (source === "Airtable") {
-        // Delete from Airtable
-        const airtableResponse = await fetch(
-          `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${recordId}`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${airtableApiKey}`,
-            },
-          }
-        );
-
-        if (!airtableResponse.ok) {
-          throw new Error("Failed to delete record from Airtable.");
-        }
-      } else if (source === "HubSpot") {
-        // Delete from HubSpot
-        const hubspotResponse = await fetch(
-          `https://api.hubapi.com/crm/v3/objects/contacts/${recordId}`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${hubspotAccessToken}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (!hubspotResponse.ok) {
-          throw new Error("Failed to delete record from HubSpot.");
-        }
-      }
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: "Record deleted successfully" }),
-      };
-    } catch (error) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: `Error deleting record: ${error.message}` }),
-      };
-    }
-  }
-
-  // Main functionality: Fetch records
   if (!contactId) {
     return {
       statusCode: 400,
@@ -90,6 +41,8 @@ exports.handler = async (event, context) => {
   ];
 
   try {
+    const normalizedContactId = contactId.trim().toLowerCase();
+
     // Fetch matching records from Airtable
     const airtableSearchUrl = `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}?filterByFormula={Contact}="${contactId}"`;
     const airtableResponse = await fetch(airtableSearchUrl, {
@@ -120,12 +73,12 @@ exports.handler = async (event, context) => {
           filters: [
             {
               propertyName: "firstname",
-              operator: "EQ",
+              operator: "CONTAINS_TOKEN",
               value: contactId.split(" ")[0],
             },
             {
               propertyName: "lastname",
-              operator: "EQ",
+              operator: "CONTAINS_TOKEN",
               value: contactId.split(" ")[1],
             },
           ],
