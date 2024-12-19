@@ -7,9 +7,9 @@ exports.handler = async (event, context) => {
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
   const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN; // Private app token
 
-  const { contactName } = event.queryStringParameters; // Name to search for (e.g., "Simone Cimminelli")
+  const { contactId } = event.queryStringParameters; // Update to use contactId
 
-  if (!contactName) {
+  if (!contactId) {
     return {
       statusCode: 400,
       headers: { "Content-Type": "text/html" },
@@ -19,7 +19,7 @@ exports.handler = async (event, context) => {
 
   try {
     // Fetch matching records from Airtable using the `Contact` field
-    const airtableSearchUrl = `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}?filterByFormula={Contact}="${contactName}"`;
+    const airtableSearchUrl = `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}?filterByFormula={Contact}="${contactId}"`;
     const airtableResponse = await fetch(airtableSearchUrl, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
@@ -41,7 +41,7 @@ exports.handler = async (event, context) => {
             {
               propertyName: "fullname", // Full Name field in HubSpot
               operator: "EQ",
-              value: contactName,
+              value: contactId,
             },
           ],
         },
@@ -106,7 +106,7 @@ exports.handler = async (event, context) => {
         </head>
         <body>
           <div class="container">
-            <h2 class="header">Matching Records for "${contactName}"</h2>
+            <h2 class="header">Matching Records for "${contactId}"</h2>
             ${combinedRecords.length
               ? combinedRecords
                   .map(
