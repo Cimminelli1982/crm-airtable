@@ -5,6 +5,7 @@ exports.handler = async (event, context) => {
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableId = process.env.AIRTABLE_TABLE_ID;
   const hubspotAccessToken = process.env.HUBSPOT_ACCESS_TOKEN;
+  const hubspotPortalId = "144666820"; // Adding this for HubSpot view links
 
   const { contactId, action, source, recordId } = event.queryStringParameters;
 
@@ -213,6 +214,24 @@ exports.handler = async (event, context) => {
             .merge-btn { margin-bottom: 20px; padding: 8px 12px; background-color: #0077cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
             .merge-btn:hover { background-color: #005fa3; }
             .merge-checkbox { margin: 10px; }
+            .view-btn {
+              margin-top: 10px;
+              margin-right: 10px;
+              padding: 8px 12px;
+              background-color: #4CAF50;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              text-decoration: none;
+              display: inline-block;
+            }
+            .view-btn:hover {
+              background-color: #45a049;
+            }
+            .button-group {
+              margin-top: 10px;
+            }
           </style>
           <script>
             let selectedRecords = [];
@@ -284,7 +303,10 @@ exports.handler = async (event, context) => {
                     `
                       )
                       .join("")}
-                    <button class="delete-btn" onclick="deleteRecord('Airtable', '${record.id}')">Delete</button>
+                    <div class="button-group">
+                      <a href="https://airtable.com/${airtableBaseId}/pagknyvJzu0i0bCE3?9HzLA=${record.id}" target="_blank" class="view-btn">View in Airtable</a>
+                      <button class="delete-btn" onclick="deleteRecord('Airtable', '${record.id}')">Delete</button>
+                    </div>
                   </div>
                 `
                     )
@@ -312,7 +334,10 @@ exports.handler = async (event, context) => {
                     `
                       )
                       .join("")}
-                    <button class="delete-btn" onclick="deleteRecord('HubSpot', '${record.id}')">Delete</button>
+                    <div class="button-group">
+                      <a href="https://app.hubspot.com/contacts/${hubspotPortalId}/contact/${record.id}" target="_blank" class="view-btn">View in HubSpot</a>
+                      <button class="delete-btn" onclick="deleteRecord('HubSpot', '${record.id}')">Delete</button>
+                    </div>
                   </div>
                 `
                     )
