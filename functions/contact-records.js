@@ -184,9 +184,13 @@ exports.handler = async (event, context) => {
       source: "HubSpot",
       fields: {
         "Full Name": `${result.properties.firstname || "N/A"} ${result.properties.lastname || "N/A"}`,
-        "Email": result.properties.email || "N/A",
-        "Phone": result.properties.phone || "N/A",
+        "Last contact": result.properties.notes_last_contacted || "N/A",
         "HubSpot ID": result.id,
+        "Main category": result.properties.people_category_ies_ || "N/A",
+        "Mobile phone number": result.properties.phone || "N/A",
+        "Phone number (from timelines)": result.properties.mobilephone || "N/A",
+        "Primary email": result.properties.email || "N/A",
+        "Linkedin": result.properties.hs_linkedin_url || "N/A",
       },
       id: result.id,
     }));
@@ -315,7 +319,10 @@ exports.handler = async (event, context) => {
                     .map(
                       (record) => `
                   <div class="record">
-                    <input type="checkbox" class="merge-checkbox" value="${record.id}" onchange="updateMergeSelection(this)">
+                    ${hubspotRecords.length > 1 ? 
+                      `<input type="checkbox" class="merge-checkbox" value="${record.id}" onchange="updateMergeSelection(this)">` 
+                      : ''
+                    }
                     ${Object.entries(record.fields)
                       .map(
                         ([key, value]) => `
