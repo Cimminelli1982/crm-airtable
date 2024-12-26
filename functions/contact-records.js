@@ -184,7 +184,8 @@ exports.handler = async (event, context) => {
       source: "HubSpot",
       fields: {
         "Full Name": `${result.properties.firstname || "N/A"} ${result.properties.lastname || "N/A"}`,
-        "Last contact": result.properties.notes_last_contacted || "N/A",
+        "Last contact": result.properties.notes_last_updated || "N/A",
+        "Contact Airtable ID": "",
         "HubSpot ID": result.id,
         "Main category": result.properties.people_category_ies_ || "N/A",
         "Mobile phone number": result.properties.phone || "N/A",
