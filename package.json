@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "airtable": "^0.12.2",
     "node-fetch": "^2.7.0"
   }
 }
