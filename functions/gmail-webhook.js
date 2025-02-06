@@ -26,7 +26,7 @@ async function findContactByEmail(email) {
   
   try {
     const records = await table.select({
-      filterByFormula: `{Email} = '${email}'`
+      filterByFormula: `{Primary Email} = '${email}'`
     }).firstPage();
     
     console.log(`Found ${records.length} matching contacts`);
@@ -74,7 +74,7 @@ async function createNewContactFromEmail(email, direction, timestamp) {
   console.log('Formatted date for new contact:', formattedDate);
 
   const newContact = {
-    'Email': email,
+    'Primary Email': email,
     'Last Email Sent': direction === 'sent' ? formattedDate : null,
     'Last Email Received': direction === 'received' ? formattedDate : null
   };
