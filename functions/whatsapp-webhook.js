@@ -1,11 +1,9 @@
-// functions/whatsapp-webhook.js
-
 const fetch = require('node-fetch');
 const Airtable = require('airtable');
 
 // Initialize Airtable
 const base = new Airtable({apiKey: process.env.AIRTABLE_API_KEY}).base(process.env.AIRTABLE_BASE_ID);
-const table = base('Contacts'); // Adjust table name if different
+const table = base('Contacts');
 
 // Enhanced logging function
 function logError(context, error, additionalData = {}) {
@@ -21,13 +19,24 @@ function logError(context, error, additionalData = {}) {
   });
 }
 
+// Format phone number to match Airtable format
+function formatPhoneNumber(phone) {
+  // Remove any non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  // Always add + prefix if not present
+  return digits.startsWith('+') ? digits : `+${digits}`;
+}
+
 // Find contact by phone number in Airtable
 async function findContactByPhone(phoneNumber) {
   console.log('Searching for contact with phone:', phoneNumber);
   
   try {
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    console.log('Formatted phone number:', formattedPhone);
+    
     const records = await table.select({
-      filterByFormula: `{Mobile Phone Number} = '${phoneNumber}'`
+      filterByFormula: `{Mobile Phone Number} = '${formattedPhone}'`
     }).firstPage();
     
     console.log(`Found ${records.length} matching contacts`);
@@ -60,8 +69,11 @@ async function updateContactWhatsAppTimestamp(recordId, direction, timestamp) {
 async function createNewContact(phoneNumber, direction, timestamp) {
   console.log('Creating new contact:', { phoneNumber, direction, timestamp });
   
+  const formattedPhone = formatPhoneNumber(phoneNumber);
+  console.log('Formatted phone for new contact:', formattedPhone);
+
   const newContact = {
-    'Mobile Phone Number': phoneNumber,
+    'Mobile Phone Number': formattedPhone,
     'Last Whatsapp Sent': direction === 'sent' ? timestamp : null,
     'Last Whatsapp Received': direction === 'received' ? timestamp : null
   };
@@ -75,38 +87,20 @@ async function createNewContact(phoneNumber, direction, timestamp) {
   }
 }
 
-// Normalize phone number
-function normalizePhoneNumber(phoneNumber) {
-  if (!phoneNumber) return null;
-  let cleaned = phoneNumber.startsWith('+') 
-    ? '+' + phoneNumber.slice(1).replace(/\D/g, '')
-    : phoneNumber.replace(/\D/g, '');
-  return !cleaned.startsWith('+') ? '+' + cleaned : cleaned;
-}
-
 // Parse incoming WhatsApp event from TimelinesAI
 function parseWhatsAppEvent(eventData) {
   console.log('Received webhook payload:', JSON.stringify(eventData, null, 2));
   
   try {
-    // Check if this is an aggregated or single message webhook
-    if (Array.isArray(eventData.messages)) {
-      console.log('Processing aggregated messages format');
-      return eventData.messages.map(message => ({
-        phoneNumber: eventData.chat.phone,
-        timestamp: message.timestamp,
-        direction: message.direction,
-        text: message.text,
-        messageId: message.message_id
-      }));
-    } else if (eventData.message) {
+    if (eventData.message) {
+      // Single message format
       console.log('Processing single message format');
       return [{
         phoneNumber: eventData.chat.phone,
         timestamp: eventData.message.timestamp,
         direction: eventData.message.direction,
         text: eventData.message.text,
-        messageId: eventData.message.message_id
+        messageId: eventData.message.message_uid
       }];
     }
     
@@ -117,30 +111,22 @@ function parseWhatsAppEvent(eventData) {
   }
 }
 
-// Validate phone number format
+// Validate phone number
 function isValidPhoneNumber(phoneNumber) {
   if (!phoneNumber) {
     console.warn('Phone number is empty or undefined');
     return false;
   }
-
-  // Remove any non-digit characters except the leading +
-  let cleanNumber = phoneNumber.startsWith('+') 
-    ? '+' + phoneNumber.slice(1).replace(/\D/g, '')
-    : phoneNumber.replace(/\D/g, '');
   
-  // Add + prefix if missing
-  if (!cleanNumber.startsWith('+')) {
-    cleanNumber = '+' + cleanNumber;
-  }
-  
-  // Check if the number has at least 10 digits
-  const isValid = cleanNumber.length >= 11; // +1234567890 (11 chars minimum)
+  // Remove any non-digit characters
+  const cleaned = phoneNumber.replace(/\D/g, '');
+  // Check if we have at least a reasonable number of digits for an international number
+  const isValid = cleaned.length >= 10;
   
   if (!isValid) {
     console.warn(`Invalid phone number format: ${phoneNumber}`);
   } else {
-    console.log(`Normalized phone number ${phoneNumber} to ${cleanNumber}`);
+    console.log(`Valid phone number: ${phoneNumber}`);
   }
   
   return isValid;
