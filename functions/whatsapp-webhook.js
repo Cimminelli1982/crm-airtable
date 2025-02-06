@@ -75,6 +75,15 @@ async function createNewContact(phoneNumber, direction, timestamp) {
   }
 }
 
+// Normalize phone number
+function normalizePhoneNumber(phoneNumber) {
+  if (!phoneNumber) return null;
+  let cleaned = phoneNumber.startsWith('+') 
+    ? '+' + phoneNumber.slice(1).replace(/\D/g, '')
+    : phoneNumber.replace(/\D/g, '');
+  return !cleaned.startsWith('+') ? '+' + cleaned : cleaned;
+}
+
 // Parse incoming WhatsApp event from TimelinesAI
 function parseWhatsAppEvent(eventData) {
   console.log('Received webhook payload:', JSON.stringify(eventData, null, 2));
@@ -114,13 +123,24 @@ function isValidPhoneNumber(phoneNumber) {
     console.warn('Phone number is empty or undefined');
     return false;
   }
+
+  // Remove any non-digit characters except the leading +
+  let cleanNumber = phoneNumber.startsWith('+') 
+    ? '+' + phoneNumber.slice(1).replace(/\D/g, '')
+    : phoneNumber.replace(/\D/g, '');
   
-  // TimelinesAI uses international format with + prefix
-  const phoneRegex = /^\+\d{10,}$/;
-  const isValid = phoneRegex.test(phoneNumber);
+  // Add + prefix if missing
+  if (!cleanNumber.startsWith('+')) {
+    cleanNumber = '+' + cleanNumber;
+  }
+  
+  // Check if the number has at least 10 digits
+  const isValid = cleanNumber.length >= 11; // +1234567890 (11 chars minimum)
   
   if (!isValid) {
     console.warn(`Invalid phone number format: ${phoneNumber}`);
+  } else {
+    console.log(`Normalized phone number ${phoneNumber} to ${cleanNumber}`);
   }
   
   return isValid;
