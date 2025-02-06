@@ -1,6 +1,6 @@
 // functions/whatsapp-webhook.js
 
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = require('node-fetch');
 const Airtable = require('airtable');
 
 // Initialize Airtable
