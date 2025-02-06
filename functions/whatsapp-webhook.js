@@ -27,6 +27,14 @@ function formatPhoneNumber(phone) {
   return digits.startsWith('+') ? digits : `+${digits}`;
 }
 
+// Format timestamp for Airtable Date field
+function formatTimestamp(timestamp) {
+  // Parse the input timestamp
+  const date = new Date(timestamp);
+  // Return just the date part in YYYY-MM-DD format
+  return date.toISOString().split('T')[0];
+}
+
 // Find contact by phone number in Airtable
 async function findContactByPhone(phoneNumber) {
   console.log('Searching for contact with phone:', phoneNumber);
@@ -47,29 +55,23 @@ async function findContactByPhone(phoneNumber) {
   }
 }
 
-// Format timestamp for Airtable
-function formatTimestamp(timestamp) {
-  // Convert "2025-02-06 12:45:01+00:00" to "2025-02-06T12:45:01.000Z"
-  return new Date(timestamp).toISOString();
-}
-
 // Update contact's WhatsApp timestamp
 async function updateContactWhatsAppTimestamp(recordId, direction, timestamp) {
   console.log('Updating contact:', { recordId, direction, timestamp });
   
   const fieldToUpdate = direction === 'sent' ? 'Last Whatsapp Sent' : 'Last Whatsapp Received';
-  const formattedTimestamp = formatTimestamp(timestamp);
+  const formattedDate = formatTimestamp(timestamp);
   
-  console.log('Formatted timestamp:', formattedTimestamp);
+  console.log('Formatted date for Airtable:', formattedDate);
   
   try {
     await table.update(recordId, {
-      [fieldToUpdate]: formattedTimestamp
+      [fieldToUpdate]: formattedDate
     });
     
     console.log('Contact updated successfully');
   } catch (error) {
-    logError('updateContactWhatsAppTimestamp', error, { recordId, direction, timestamp, formattedTimestamp });
+    logError('updateContactWhatsAppTimestamp', error, { recordId, direction, timestamp, formattedDate });
     throw error;
   }
 }
@@ -81,13 +83,13 @@ async function createNewContact(phoneNumber, direction, timestamp) {
   const formattedPhone = formatPhoneNumber(phoneNumber);
   console.log('Formatted phone for new contact:', formattedPhone);
   
-  const formattedTimestamp = formatTimestamp(timestamp);
-  console.log('Formatted timestamp:', formattedTimestamp);
+  const formattedDate = formatTimestamp(timestamp);
+  console.log('Formatted date for new contact:', formattedDate);
 
   const newContact = {
     'Mobile Phone Number': formattedPhone,
-    'Last Whatsapp Sent': direction === 'sent' ? formattedTimestamp : null,
-    'Last Whatsapp Received': direction === 'received' ? formattedTimestamp : null
+    'Last Whatsapp Sent': direction === 'sent' ? formattedDate : null,
+    'Last Whatsapp Received': direction === 'received' ? formattedDate : null
   };
 
   try {
