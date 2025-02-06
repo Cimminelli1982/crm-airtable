@@ -47,20 +47,29 @@ async function findContactByPhone(phoneNumber) {
   }
 }
 
+// Format timestamp for Airtable
+function formatTimestamp(timestamp) {
+  // Convert "2025-02-06 12:45:01+00:00" to "2025-02-06T12:45:01.000Z"
+  return new Date(timestamp).toISOString();
+}
+
 // Update contact's WhatsApp timestamp
 async function updateContactWhatsAppTimestamp(recordId, direction, timestamp) {
   console.log('Updating contact:', { recordId, direction, timestamp });
   
   const fieldToUpdate = direction === 'sent' ? 'Last Whatsapp Sent' : 'Last Whatsapp Received';
+  const formattedTimestamp = formatTimestamp(timestamp);
+  
+  console.log('Formatted timestamp:', formattedTimestamp);
   
   try {
     await table.update(recordId, {
-      [fieldToUpdate]: timestamp
+      [fieldToUpdate]: formattedTimestamp
     });
     
     console.log('Contact updated successfully');
   } catch (error) {
-    logError('updateContactWhatsAppTimestamp', error, { recordId, direction, timestamp });
+    logError('updateContactWhatsAppTimestamp', error, { recordId, direction, timestamp, formattedTimestamp });
     throw error;
   }
 }
@@ -71,11 +80,14 @@ async function createNewContact(phoneNumber, direction, timestamp) {
   
   const formattedPhone = formatPhoneNumber(phoneNumber);
   console.log('Formatted phone for new contact:', formattedPhone);
+  
+  const formattedTimestamp = formatTimestamp(timestamp);
+  console.log('Formatted timestamp:', formattedTimestamp);
 
   const newContact = {
     'Mobile Phone Number': formattedPhone,
-    'Last Whatsapp Sent': direction === 'sent' ? timestamp : null,
-    'Last Whatsapp Received': direction === 'received' ? timestamp : null
+    'Last Whatsapp Sent': direction === 'sent' ? formattedTimestamp : null,
+    'Last Whatsapp Received': direction === 'received' ? formattedTimestamp : null
   };
 
   try {
