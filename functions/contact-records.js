@@ -371,11 +371,12 @@ exports.handler = async (event, context) => {
         </head>
         <body>
           <div class="container">
-          <div style="margin-bottom: 20px; text-align: center;">
-              ${filteredAirtableRecords.length && hubspotRecords.length ? `
+            <div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; gap: 10px;">
+              ${(filteredAirtableRecords.length > 0 && hubspotRecords.length > 0) ? `
                 <button 
                   onclick="syncHubspotId('${hubspotRecords[0].id}', '${filteredAirtableRecords[0].id}')"
-                  style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;"
+                  style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;"
                 >
                   Sync HubSpot ID to Airtable
                 </button>
@@ -387,20 +388,21 @@ exports.handler = async (event, context) => {
                 </button>
               ` : ''}
             </div>
-            <div class="column">
-              <h2>Airtable Records</h2>
-              ${filteredAirtableRecords.length
-                ? filteredAirtableRecords
-                    .map(
-                      (record) => `
-                  <div class="record">
-                    ${Object.entries(record.fields)
+            <div class="container" style="display: flex; gap: 20px;">
+              <div class="column">
+                <h2>Airtable Records</h2>
+                ${filteredAirtableRecords.length
+                  ? filteredAirtableRecords
                       .map(
-                        ([key, value]) => `
-                      <div>
-                        <span class="field-name">${key}:</span> 
-                        <span>${value}</span>
-                      </div>
+                        (record) => `
+                    <div class="record">
+                      ${Object.entries(record.fields)
+                        .map(
+                          ([key, value]) => `
+                        <div>
+                          <span class="field-name">${key}:</span> 
+                          <span>${value}</span>
+                        </div>
                     `
                       )
                       .join("")}
