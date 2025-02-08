@@ -106,36 +106,56 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Handle syncing HubSpot ID to Airtable
+// Handle syncing HubSpot ID to Airtable
     if (action === 'syncHubspotId') {
+      console.log('Starting HubSpot ID sync...');
       const hubspotId = event.queryStringParameters.hubspotId;
       const airtableRecordId = event.queryStringParameters.airtableRecordId;
       
-      const updateResponse = await fetch(
-        `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${airtableRecordId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${airtableApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            fields: {
-              'HubSpot ID': hubspotId
-            }
-          })
+      console.log('Parameters:', {
+        hubspotId,
+        airtableRecordId,
+        contactId
+      });
+
+      try {
+        const updateResponse = await fetch(
+          `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${airtableRecordId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${airtableApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              fields: {
+                'HubSpot ID': hubspotId
+              }
+            })
+          }
+        );
+
+        console.log('Airtable response status:', updateResponse.status);
+        const responseData = await updateResponse.json();
+        console.log('Airtable response:', responseData);
+
+        if (!updateResponse.ok) {
+          console.error('Failed to update:', responseData);
+          throw new Error('Failed to update HubSpot ID in Airtable');
         }
-      );
 
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update HubSpot ID in Airtable');
+        return {
+          statusCode: 200,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: 'HubSpot ID updated successfully in Airtable',
+            data: responseData 
+          })
+        };
+      } catch (error) {
+        console.error('Sync error:', error);
+        throw error;
       }
-
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'HubSpot ID updated successfully in Airtable' })
-      };
     }
 
     // Handle syncing Airtable ID to HubSpot
@@ -344,24 +364,29 @@ exports.handler = async (event, context) => {
               }
             }
 
-          function syncHubspotId(hubspotId, airtableRecordId) {
-  if (confirm("Are you sure you want to sync the HubSpot ID to Airtable?")) {
-    fetch("?action=syncHubspotId&hubspotId=" + hubspotId + "&airtableRecordId=" + airtableRecordId + "&contactId=" + contactId)
-      .then(response => {
-        console.log('Response status:', response.status);
-        return response.json();
-      })
-      .then(data => {
-        console.log('Response data:', data);
-        alert(data.message);
-        window.location.reload();
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        alert("Error syncing HubSpot ID: " + error.message);
-      });
-  }
-}
+function syncHubspotId(hubspotId, airtableRecordId) {
+              if (confirm("Are you sure you want to sync the HubSpot ID to Airtable?")) {
+                console.log('Syncing HubSpot ID:', hubspotId, 'to Airtable record:', airtableRecordId);
+                fetch("?action=syncHubspotId&hubspotId=" + hubspotId + "&airtableRecordId=" + airtableRecordId + "&contactId=" + contactId)
+                  .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json().then(data => ({status: response.status, data}));
+                  })
+                  .then(({status, data}) => {
+                    console.log('Response data:', data);
+                    if (status === 200) {
+                      alert(data.message);
+                      window.location.reload();
+                    } else {
+                      throw new Error(data.message || 'Failed to sync');
+                    }
+                  })
+                  .catch(error => {
+                    console.error('Error:', error);
+                    alert("Error syncing HubSpot ID: " + error.message);
+                  });
+              }
+            }
 
             function syncAirtableId(airtableId, hubspotRecordId) {
               if (confirm("Are you sure you want to sync the Airtable ID to HubSpot?")) {
