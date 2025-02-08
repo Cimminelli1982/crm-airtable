@@ -106,6 +106,70 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Handle syncing HubSpot ID to Airtable
+    if (action === 'syncHubspotId') {
+      const hubspotId = event.queryStringParameters.hubspotId;
+      const airtableRecordId = event.queryStringParameters.airtableRecordId;
+      
+      const updateResponse = await fetch(
+        `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}/${airtableRecordId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${airtableApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: {
+              'HubSpot ID': hubspotId
+            }
+          })
+        }
+      );
+
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update HubSpot ID in Airtable');
+      }
+
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'HubSpot ID updated successfully in Airtable' })
+      };
+    }
+
+    // Handle syncing Airtable ID to HubSpot
+    if (action === 'syncAirtableId') {
+      const airtableId = event.queryStringParameters.airtableId;
+      const hubspotRecordId = event.queryStringParameters.hubspotRecordId;
+      
+      const updateResponse = await fetch(
+        `https://api.hubapi.com/crm/v3/objects/contacts/${hubspotRecordId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${hubspotAccessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            properties: {
+              'airtable_id': airtableId
+            }
+          })
+        }
+      );
+
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update Airtable ID in HubSpot');
+      }
+
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Airtable ID updated successfully in HubSpot' })
+      };
+    }
+
     // Regular view - fetch records
     const airtableFieldsToShow = [
       { airtableField: "Full Name", displayName: "Full Name" },
@@ -279,10 +343,50 @@ exports.handler = async (event, context) => {
                   .catch(error => alert("Error deleting record: " + error.message));
               }
             }
+
+            function syncHubspotId(hubspotId, airtableRecordId) {
+              if (confirm("Are you sure you want to sync the HubSpot ID to Airtable?")) {
+                fetch(`?action=syncHubspotId&hubspotId=${hubspotId}&airtableRecordId=${airtableRecordId}&contactId=${contactId}`)
+                  .then(response => response.json())
+                  .then(data => {
+                    alert(data.message);
+                    window.location.reload();
+                  })
+                  .catch(error => alert("Error syncing HubSpot ID: " + error.message));
+              }
+            }
+
+            function syncAirtableId(airtableId, hubspotRecordId) {
+              if (confirm("Are you sure you want to sync the Airtable ID to HubSpot?")) {
+                fetch(`?action=syncAirtableId&airtableId=${airtableId}&hubspotRecordId=${hubspotRecordId}&contactId=${contactId}`)
+                  .then(response => response.json())
+                  .then(data => {
+                    alert(data.message);
+                    window.location.reload();
+                  })
+                  .catch(error => alert("Error syncing Airtable ID: " + error.message));
+              }
+            }
           </script>
         </head>
         <body>
           <div class="container">
+          <div style="margin-bottom: 20px; text-align: center;">
+              ${filteredAirtableRecords.length && hubspotRecords.length ? `
+                <button 
+                  onclick="syncHubspotId('${hubspotRecords[0].id}', '${filteredAirtableRecords[0].id}')"
+                  style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;"
+                >
+                  Sync HubSpot ID to Airtable
+                </button>
+                <button 
+                  onclick="syncAirtableId('${filteredAirtableRecords[0].fields['Contact Airtable ID']}', '${hubspotRecords[0].id}')"
+                  style="padding: 8px 16px; background-color: #008CBA; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                >
+                  Sync Airtable ID to HubSpot
+                </button>
+              ` : ''}
+            </div>
             <div class="column">
               <h2>Airtable Records</h2>
               ${filteredAirtableRecords.length
