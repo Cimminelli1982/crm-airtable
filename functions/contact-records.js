@@ -315,6 +315,7 @@ exports.handler = async (event, context) => {
             }
           </style>
           <script>
+            const contactId = "${contactId}"; // Add this line to define contactId
             let selectedRecords = [];
 
             function updateMergeSelection(checkbox) {
