@@ -344,17 +344,24 @@ exports.handler = async (event, context) => {
               }
             }
 
-            function syncHubspotId(hubspotId, airtableRecordId) {
-              if (confirm("Are you sure you want to sync the HubSpot ID to Airtable?")) {
-                fetch("?action=syncHubspotId&hubspotId=" + hubspotId + "&airtableRecordId=" + airtableRecordId + "&contactId=" + contactId)
-                  .then(response => response.json())
-                  .then(data => {
-                    alert(data.message);
-                    window.location.reload();
-                  })
-                  .catch(error => alert("Error syncing HubSpot ID: " + error.message));
-              }
-            }
+          function syncHubspotId(hubspotId, airtableRecordId) {
+  if (confirm("Are you sure you want to sync the HubSpot ID to Airtable?")) {
+    fetch("?action=syncHubspotId&hubspotId=" + hubspotId + "&airtableRecordId=" + airtableRecordId + "&contactId=" + contactId)
+      .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+      })
+      .then(data => {
+        console.log('Response data:', data);
+        alert(data.message);
+        window.location.reload();
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert("Error syncing HubSpot ID: " + error.message);
+      });
+  }
+}
 
             function syncAirtableId(airtableId, hubspotRecordId) {
               if (confirm("Are you sure you want to sync the Airtable ID to HubSpot?")) {
