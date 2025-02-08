@@ -346,7 +346,7 @@ exports.handler = async (event, context) => {
 
             function syncHubspotId(hubspotId, airtableRecordId) {
               if (confirm("Are you sure you want to sync the HubSpot ID to Airtable?")) {
-                fetch(`?action=syncHubspotId&hubspotId=${hubspotId}&airtableRecordId=${airtableRecordId}&contactId=${contactId}`)
+                fetch("?action=syncHubspotId&hubspotId=" + hubspotId + "&airtableRecordId=" + airtableRecordId + "&contactId=" + contactId)
                   .then(response => response.json())
                   .then(data => {
                     alert(data.message);
@@ -358,7 +358,7 @@ exports.handler = async (event, context) => {
 
             function syncAirtableId(airtableId, hubspotRecordId) {
               if (confirm("Are you sure you want to sync the Airtable ID to HubSpot?")) {
-                fetch(`?action=syncAirtableId&airtableId=${airtableId}&hubspotRecordId=${hubspotRecordId}&contactId=${contactId}`)
+                fetch("?action=syncAirtableId&airtableId=" + airtableId + "&hubspotRecordId=" + hubspotRecordId + "&contactId=" + contactId)
                   .then(response => response.json())
                   .then(data => {
                     alert(data.message);
