@@ -44,7 +44,7 @@ async function findContactByPhone(phoneNumber) {
     console.log('Formatted phone number:', formattedPhone);
     
     const records = await table.select({
-      filterByFormula: `{Mobile phone number} = '${formattedPhone}'`
+      filterByFormula: `{} = '${formattedPhone}'`
     }).firstPage();
     
     console.log(`Found ${records.length} matching contacts`);
@@ -87,7 +87,7 @@ async function createNewContact(phoneNumber, direction, timestamp) {
   console.log('Formatted date for new contact:', formattedDate);
 
   const newContact = {
-    'Mobile phone number': formattedPhone,
+    '': formattedPhone,
     'Last Whatsapp Sent': direction === 'sent' ? formattedDate : null,
     'Last Whatsapp Received': direction === 'received' ? formattedDate : null
   };
