@@ -22,18 +22,18 @@ function logError(context, error, additionalData = {}) {
 // Format phone number to match Airtable format
 function formatPhoneNumber(phone) {
   if (!phone) return null;
-  // Remove any non-digit characters except plus sign
-  const cleaned = phone.replace(/[^\d+]/g, '');
+  // Remove any non-digit characters
+  const digits = phone.replace(/\D/g, '');
   // Always add + prefix if not present
-  return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
+  return digits.startsWith('+') ? digits : `+${digits}`;
 }
 
-// Format timestamp for Airtable Date field
+// Format timestamp for Airtable Date field - using the original working format
 function formatTimestamp(timestamp) {
   // Parse the input timestamp
   const date = new Date(timestamp);
-  // Return date in DD/MM/YYYY format for Airtable
-  return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+  // Return just the date part in YYYY-MM-DD format - this worked in the original script
+  return date.toISOString().split('T')[0];
 }
 
 // Create a new interaction record
@@ -48,13 +48,6 @@ async function createInteraction(data) {
     logError('createInteraction', error, { data });
     throw error;
   }
-}
-
-// Generate the formatted interaction string
-function generateInteractionString(date, type, contactInfo) {
-  // Format: YYYY-MM-DD - Type - ContactInfo
-  const formattedDate = date ? new Date(date).toISOString().split('T')[0] : '';
-  return `${formattedDate} - ${type} - ${contactInfo}`;
 }
 
 // Parse incoming WhatsApp event from TimelinesAI
@@ -102,6 +95,13 @@ function isValidPhoneNumber(phoneNumber) {
   return isValid;
 }
 
+// Generate the formatted interaction string
+function generateInteractionString(date, type, contactInfo) {
+  // Format YYYY-MM-DD - Type - ContactInfo
+  const formattedDate = date ? new Date(date).toISOString().split('T')[0] : '';
+  return `${formattedDate} - ${type} - ${contactInfo}`;
+}
+
 // Netlify function handler
 exports.handler = async (event, context) => {
   console.log('Received webhook request:', {
@@ -134,7 +134,7 @@ exports.handler = async (event, context) => {
         continue;
       }
 
-      // Format the timestamp for Airtable
+      // Format the timestamp for Airtable using the working method from original script
       const formattedDate = formatTimestamp(timestamp);
       
       // Create interaction record data
@@ -146,14 +146,14 @@ exports.handler = async (event, context) => {
         'Notes': text || ''
       };
       
+      // Generate formatted string for the Iteration field
+      const iteration = generateInteractionString(timestamp, 'WhatsApp', phoneNumber);
+      interactionData['Iteration'] = iteration;
+      
       // Create the interaction record
-      const interaction = await createInteraction(interactionData);
+      await createInteraction(interactionData);
       
-      // Generate the formatted iteration string for the formula field
-      const contactInfo = phoneNumber; // Use phone as the contact info
-      interactionData['Iteration'] = generateInteractionString(timestamp, 'WhatsApp', contactInfo);
-      
-      console.log('Created interaction record:', interaction.id);
+      console.log('Created interaction record for:', phoneNumber);
     }
 
     console.log('Successfully processed all messages');
@@ -168,4 +168,4 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: error.message })
     };
   }
-}
+};
