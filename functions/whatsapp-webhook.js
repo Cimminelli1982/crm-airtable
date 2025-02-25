@@ -36,20 +36,6 @@ function formatTimestamp(timestamp) {
   return date.toISOString().split('T')[0];
 }
 
-// Create a new interaction record
-async function createInteraction(data) {
-  console.log('Creating new interaction:', data);
-  
-  try {
-    const record = await interactionsTable.create(data);
-    console.log('Interaction created successfully:', record.getId());
-    return record;
-  } catch (error) {
-    logError('createInteraction', error, { data });
-    throw error;
-  }
-}
-
 // Parse incoming WhatsApp event from TimelinesAI
 function parseWhatsAppEvent(eventData) {
   console.log('Received webhook payload:', JSON.stringify(eventData, null, 2));
@@ -97,59 +83,74 @@ function isValidPhoneNumber(phoneNumber) {
 
 // Netlify function handler
 exports.handler = async (event, context) => {
-  console.log('Received webhook request:', {
-    method: event.httpMethod,
-    headers: event.headers,
-    path: event.path
-  });
-
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
-    console.warn('Rejected non-POST request');
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
+    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
   try {
     const body = JSON.parse(event.body);
     const messages = parseWhatsAppEvent(body);
     
-    console.log(`Processing ${messages.length} messages`);
-    
     for (const messageData of messages) {
       const { phoneNumber, timestamp, direction, text } = messageData;
       
-      // Validate phone number format
       if (!isValidPhoneNumber(phoneNumber)) {
-        console.warn(`Skipping invalid phone number format: ${phoneNumber}`);
         continue;
       }
 
-      // Format the timestamp for Airtable - ensure it's in ISO format
+      // Format the timestamp for Airtable
       const formattedDate = formatTimestamp(timestamp);
-      console.log('Formatted date for Airtable (ISO format):', formattedDate);
       
-      // Create interaction record data - use only the fields that actually exist in Airtable
+      // Create a minimal record with just the fields we're confident about
       const interactionData = {
-        'Interaction Date': formattedDate,  // This must be YYYY-MM-DD
-        'Interaction type': 'WhatsApp',     // Make sure this exactly matches your field name
+        'Interaction Date': formattedDate,
         'Contact Mobile': formatPhoneNumber(phoneNumber),
         'Direction': direction === 'sent' ? 'Outbound' : 'Inbound',
         'Notes': text || ''
       };
       
-      // Don't try to set formula fields - they're calculated by Airtable
-      // Remove this line: interactionData['Iteration'] = ...
-      
-      // Create the interaction record
-      await createInteraction(interactionData);
-      
-      console.log('Created interaction record for:', phoneNumber);
+      // Try to add Interaction type if configured correctly
+      try {
+        // First try with lowercase 't'
+        interactionData['Interaction type'] = 'WhatsApp';
+        
+        console.log('Creating interaction with data:', interactionData);
+        await interactionsTable.create(interactionData);
+        console.log('Successfully created interaction record');
+      } catch (error) {
+        // If that fails, try with uppercase 'T'
+        if (error.message.includes('Unknown field name: "Interaction type"')) {
+          delete interactionData['Interaction type'];
+          interactionData['Interaction Type'] = 'WhatsApp';
+          
+          try {
+            console.log('Retrying with uppercase T:', interactionData);
+            await interactionsTable.create(interactionData);
+            console.log('Successfully created interaction record with uppercase T');
+          } catch (retryError) {
+            // If both fail, try without the field at all
+            if (retryError.message.includes('Unknown field name')) {
+              delete interactionData['Interaction Type'];
+              
+              try {
+                console.log('Retrying without interaction type field:', interactionData);
+                await interactionsTable.create(interactionData);
+                console.log('Successfully created minimal interaction record');
+              } catch (finalError) {
+                logError('finalCreateAttempt', finalError, { interactionData });
+                throw finalError;
+              }
+            } else {
+              throw retryError;
+            }
+          }
+        } else {
+          throw error;
+        }
+      }
     }
 
-    console.log('Successfully processed all messages');
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true })
