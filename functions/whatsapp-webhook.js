@@ -41,9 +41,15 @@ function parseWhatsAppEvent(eventData) {
   console.log('Received webhook payload:', JSON.stringify(eventData, null, 2));
   
   try {
+    // Check if this is a group chat - if yes, return empty array to skip processing
+    if (eventData.chat && eventData.chat.is_group === true) {
+      console.log('Skipping group chat message');
+      return [];
+    }
+    
     if (eventData.message) {
       // Single message format
-      console.log('Processing single message format');
+      console.log('Processing single message format (one-to-one chat)');
       return [{
         phoneNumber: eventData.chat.phone,
         timestamp: eventData.message.timestamp,
@@ -91,6 +97,14 @@ exports.handler = async (event, context) => {
   try {
     const body = JSON.parse(event.body);
     const messages = parseWhatsAppEvent(body);
+    
+    // If no messages to process (e.g., because it was a group chat), just return success
+    if (messages.length === 0) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, message: 'No individual chat messages to process' })
+      };
+    }
     
     for (const messageData of messages) {
       const { phoneNumber, timestamp, direction, text } = messageData;
