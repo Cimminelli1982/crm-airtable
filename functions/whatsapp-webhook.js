@@ -2,8 +2,8 @@ const fetch = require('node-fetch');
 const Airtable = require('airtable');
 
 // Initialize Airtable
-const base = new Airtable({apiKey: process.env.AIRTABLE_API_KEY}).base(process.env.AIRTABLE_BASE_ID);
-const table = base('Contacts');
+const base = new Airtable({apiKey: process.env.AIRTABLE_API_KEY}).base('appTMYAU4N43eJdxG');
+const interactionsTable = base('tblXub1Mg6RtXScPG');
 
 // Enhanced logging function
 function logError(context, error, additionalData = {}) {
@@ -21,84 +21,40 @@ function logError(context, error, additionalData = {}) {
 
 // Format phone number to match Airtable format
 function formatPhoneNumber(phone) {
-  // Remove any non-digit characters
-  const digits = phone.replace(/\D/g, '');
+  if (!phone) return null;
+  // Remove any non-digit characters except plus sign
+  const cleaned = phone.replace(/[^\d+]/g, '');
   // Always add + prefix if not present
-  return digits.startsWith('+') ? digits : `+${digits}`;
+  return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
 }
 
 // Format timestamp for Airtable Date field
 function formatTimestamp(timestamp) {
   // Parse the input timestamp
   const date = new Date(timestamp);
-  // Return just the date part in YYYY-MM-DD format
-  return date.toISOString().split('T')[0];
+  // Return date in DD/MM/YYYY format for Airtable
+  return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
 }
 
-// Find contact by phone number in Airtable
-async function findContactByPhone(phoneNumber) {
-  console.log('Searching for contact with phone:', phoneNumber);
+// Create a new interaction record
+async function createInteraction(data) {
+  console.log('Creating new interaction:', data);
   
   try {
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    console.log('Formatted phone number:', formattedPhone);
-    
-    const records = await table.select({
-      filterByFormula: `{Mobile phone number} = '${formattedPhone}'`
-    }).firstPage();
-    
-    console.log(`Found ${records.length} matching contacts`);
-    return records.length > 0 ? records[0] : null;
+    const record = await interactionsTable.create(data);
+    console.log('Interaction created successfully:', record.getId());
+    return record;
   } catch (error) {
-    logError('findContactByPhone', error, { phoneNumber });
+    logError('createInteraction', error, { data });
     throw error;
   }
 }
 
-// Update contact's WhatsApp timestamp
-async function updateContactWhatsAppTimestamp(recordId, direction, timestamp) {
-  console.log('Updating contact:', { recordId, direction, timestamp });
-  
-  const fieldToUpdate = direction === 'sent' ? 'Last Whatsapp Sent' : 'Last Whatsapp Received';
-  const formattedDate = formatTimestamp(timestamp);
-  
-  console.log('Formatted date for Airtable:', formattedDate);
-  
-  try {
-    await table.update(recordId, {
-      [fieldToUpdate]: formattedDate
-    });
-    
-    console.log('Contact updated successfully');
-  } catch (error) {
-    logError('updateContactWhatsAppTimestamp', error, { recordId, direction, timestamp, formattedDate });
-    throw error;
-  }
-}
-
-// Create new contact
-async function createNewContact(phoneNumber, direction, timestamp) {
-  console.log('Creating new contact:', { phoneNumber, direction, timestamp });
-  
-  const formattedPhone = formatPhoneNumber(phoneNumber);
-  console.log('Formatted phone for new contact:', formattedPhone);
-  
-  const formattedDate = formatTimestamp(timestamp);
-  console.log('Formatted date for new contact:', formattedDate);
-
-  const newContact = {
-    'Mobile phone number': formattedPhone,
-    'Last Whatsapp Sent': direction === 'sent' ? formattedDate : null,
-    'Last Whatsapp Received': direction === 'received' ? formattedDate : null
-  };
-
-  try {
-    const record = await table.create(newContact);
-    console.log('Contact created successfully:', record.getId());
-  } catch (error) {
-    logError('createNewContact', error, { newContact });
-    throw error;
-  }
+// Generate the formatted interaction string
+function generateInteractionString(date, type, contactInfo) {
+  // Format: YYYY-MM-DD - Type - ContactInfo
+  const formattedDate = date ? new Date(date).toISOString().split('T')[0] : '';
+  return `${formattedDate} - ${type} - ${contactInfo}`;
 }
 
 // Parse incoming WhatsApp event from TimelinesAI
@@ -170,7 +126,7 @@ exports.handler = async (event, context) => {
     console.log(`Processing ${messages.length} messages`);
     
     for (const messageData of messages) {
-      const { phoneNumber, timestamp, direction } = messageData;
+      const { phoneNumber, timestamp, direction, text } = messageData;
       
       // Validate phone number format
       if (!isValidPhoneNumber(phoneNumber)) {
@@ -178,16 +134,26 @@ exports.handler = async (event, context) => {
         continue;
       }
 
-      // Check if contact exists
-      const existingContact = await findContactByPhone(phoneNumber);
+      // Format the timestamp for Airtable
+      const formattedDate = formatTimestamp(timestamp);
       
-      if (existingContact) {
-        console.log('Updating existing contact:', existingContact.id);
-        await updateContactWhatsAppTimestamp(existingContact.id, direction, timestamp);
-      } else {
-        console.log('Creating new contact for phone:', phoneNumber);
-        await createNewContact(phoneNumber, direction, timestamp);
-      }
+      // Create interaction record data
+      const interactionData = {
+        'Interaction Date': formattedDate,
+        'Interaction Type': 'WhatsApp',
+        'Contact Mobile': formatPhoneNumber(phoneNumber),
+        'Direction': direction === 'sent' ? 'Outbound' : 'Inbound',
+        'Notes': text || ''
+      };
+      
+      // Create the interaction record
+      const interaction = await createInteraction(interactionData);
+      
+      // Generate the formatted iteration string for the formula field
+      const contactInfo = phoneNumber; // Use phone as the contact info
+      interactionData['Iteration'] = generateInteractionString(timestamp, 'WhatsApp', contactInfo);
+      
+      console.log('Created interaction record:', interaction.id);
     }
 
     console.log('Successfully processed all messages');
@@ -202,4 +168,4 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: error.message })
     };
   }
-};
+}
