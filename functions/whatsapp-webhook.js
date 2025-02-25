@@ -28,11 +28,11 @@ function formatPhoneNumber(phone) {
   return digits.startsWith('+') ? digits : `+${digits}`;
 }
 
-// Format timestamp for Airtable Date field - using the original working format
+// Format timestamp for Airtable Date field
 function formatTimestamp(timestamp) {
   // Parse the input timestamp
   const date = new Date(timestamp);
-  // Return just the date part in YYYY-MM-DD format - this worked in the original script
+  // Return just the date part in YYYY-MM-DD format
   return date.toISOString().split('T')[0];
 }
 
@@ -95,13 +95,6 @@ function isValidPhoneNumber(phoneNumber) {
   return isValid;
 }
 
-// Generate the formatted interaction string
-function generateInteractionString(date, type, contactInfo) {
-  // Format YYYY-MM-DD - Type - ContactInfo
-  const formattedDate = date ? new Date(date).toISOString().split('T')[0] : '';
-  return `${formattedDate} - ${type} - ${contactInfo}`;
-}
-
 // Netlify function handler
 exports.handler = async (event, context) => {
   console.log('Received webhook request:', {
@@ -134,21 +127,21 @@ exports.handler = async (event, context) => {
         continue;
       }
 
-      // Format the timestamp for Airtable using the working method from original script
+      // Format the timestamp for Airtable - ensure it's in ISO format
       const formattedDate = formatTimestamp(timestamp);
+      console.log('Formatted date for Airtable (ISO format):', formattedDate);
       
       // Create interaction record data
       const interactionData = {
-        'Interaction Date': formattedDate,
+        'Interaction Date': formattedDate,  // This must be YYYY-MM-DD
         'Interaction Type': 'WhatsApp',
         'Contact Mobile': formatPhoneNumber(phoneNumber),
         'Direction': direction === 'sent' ? 'Outbound' : 'Inbound',
         'Notes': text || ''
       };
       
-      // Generate formatted string for the Iteration field
-      const iteration = generateInteractionString(timestamp, 'WhatsApp', phoneNumber);
-      interactionData['Iteration'] = iteration;
+      // Generate the iteration field value - formatted as YYYY-MM-DD - Type - Phone
+      interactionData['Iteration'] = `${formattedDate} - WhatsApp - ${formatPhoneNumber(phoneNumber)}`;
       
       // Create the interaction record
       await createInteraction(interactionData);
