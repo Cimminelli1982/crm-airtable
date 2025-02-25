@@ -131,17 +131,17 @@ exports.handler = async (event, context) => {
       const formattedDate = formatTimestamp(timestamp);
       console.log('Formatted date for Airtable (ISO format):', formattedDate);
       
-      // Create interaction record data
+      // Create interaction record data - use only the fields that actually exist in Airtable
       const interactionData = {
         'Interaction Date': formattedDate,  // This must be YYYY-MM-DD
-        'Interaction Type': 'WhatsApp',
+        'Interaction type': 'WhatsApp',     // Make sure this exactly matches your field name
         'Contact Mobile': formatPhoneNumber(phoneNumber),
         'Direction': direction === 'sent' ? 'Outbound' : 'Inbound',
         'Notes': text || ''
       };
       
-      // Generate the iteration field value - formatted as YYYY-MM-DD - Type - Phone
-      interactionData['Iteration'] = `${formattedDate} - WhatsApp - ${formatPhoneNumber(phoneNumber)}`;
+      // Don't try to set formula fields - they're calculated by Airtable
+      // Remove this line: interactionData['Iteration'] = ...
       
       // Create the interaction record
       await createInteraction(interactionData);
