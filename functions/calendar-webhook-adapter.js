@@ -34,61 +34,59 @@ exports.handler = async function(event, context) {
       };
     }
     
-    // For actual changes, fetch the event data right away
+    // For actual changes, use our fetch-calendar-event Lambda function
     if (resourceState === 'exists' || resourceState === 'update' || resourceState === 'delete') {
-      // Setup Google Calendar API
-      const oAuth2Client = new google.auth.OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        'https://developers.google.com/oauthplayground'
-      );
+      console.log('Fetching calendar events using fetch-calendar-event function');
       
-      oAuth2Client.setCredentials({
-        refresh_token: process.env.CALENDAR_REFRESH_TOKEN
-      });
+      // First prepare the payload for the fetch-calendar-event function
+      const fetchPayload = {
+        resourceId,
+        calendarId: process.env.CALENDAR_ID || 'primary',
+        resourceState
+      };
       
-      // Get a new access token
-      await oAuth2Client.getAccessToken();
+      // Call our fetch-calendar-event function directly 
+      // In a real deployment, this would be a Lambda function call
+      // We're importing it directly here for reliability
+      const { handler: fetchCalendarEventHandler } = require('./fetch-calendar-event');
       
-      // Initialize Calendar API client
-      const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
-      const calendarId = process.env.CALENDAR_ID || 'primary';
+      // Create a mock event object for the fetch function
+      const mockEvent = {
+        body: JSON.stringify(fetchPayload)
+      };
       
-      // Fetch recent events (last day + next day)
-      console.log('Fetching recent events from Google Calendar API');
-      const response = await calendar.events.list({
-        calendarId: calendarId,
-        timeMin: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Last 24 hours
-        timeMax: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Next 24 hours
-        maxResults: 10,
-        singleEvents: true,
-        orderBy: 'updated'
-      });
+      // Call the function
+      console.log('Calling fetch-calendar-event with payload:', JSON.stringify(fetchPayload));
+      const fetchResult = await fetchCalendarEventHandler(mockEvent, {});
       
-      const events = response.data.items || [];
-      console.log(`Found ${events.length} recent events`);
+      // Parse the response
+      let eventsData;
+      try {
+        eventsData = JSON.parse(fetchResult.body);
+        console.log(`Received ${eventsData.events?.length || 0} events from fetch-calendar-event`);
+      } catch (error) {
+        console.error('Error parsing fetch-calendar-event response:', error);
+        throw new Error(`Failed to parse events data: ${error.message}`);
+      }
       
-      // Clean up and normalize event data
-      const cleanedEvents = events.map(event => ({
-        id: event.id,
-        google_meeting_id: event.id, // Use the same ID as provided by Google
-        summary: event.summary || 'Untitled Event',
-        description: event.description,
-        start: event.start,
-        end: event.end,
-        status: event.status,
-        created: event.created,
-        updated: event.updated,
-        colorId: event.colorId,
-        calendar: {
-          id: calendarId,
-          name: response.data.summary || 'Google Calendar'
-        },
-        attendees: (event.attendees || []).map(a => ({
-          email: a.email,
-          displayName: a.displayName,
-          responseStatus: a.responseStatus
-        }))
+      if (!eventsData.events || eventsData.events.length === 0) {
+        console.log('No events found - nothing to process');
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ 
+            message: 'Calendar notification processed but no events found to update',
+            resourceId,
+            resourceState
+          })
+        };
+      }
+      
+      // Map the events properly to include required fields
+      const cleanedEvents = eventsData.events.map(event => ({
+        ...event,
+        google_meeting_id: event.id,
+        meeting_date: event.start?.dateTime || event.start?.date,
+        calendar_colour: event.colorId ? `${event.colorId} ${eventsData.calendarId}` : null
       }));
       
       // Prepare the full payload with notification data AND event data

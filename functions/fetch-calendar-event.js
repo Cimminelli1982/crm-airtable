@@ -49,7 +49,7 @@ exports.handler = async function(event, context) {
     const events = response.data.items || [];
     console.log(`Found ${events.length} recent events`);
     
-    // Return all recent events since we can't directly map resourceId to an event
+    // Format events to include all fields needed by our Supabase function
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -57,13 +57,21 @@ exports.handler = async function(event, context) {
         calendarId: calendarId,
         events: events.map(event => ({
           id: event.id,
-          summary: event.summary,
+          google_meeting_id: event.id,
+          summary: event.summary || 'Untitled Event',
           description: event.description,
           start: event.start,
+          meeting_date: event.start?.dateTime || event.start?.date,
           end: event.end,
           status: event.status,
           created: event.created,
           updated: event.updated,
+          colorId: event.colorId,
+          calendar_colour: event.colorId ? `${event.colorId} ${response.data.summary || 'Calendar'}` : null,
+          calendar: {
+            id: calendarId,
+            name: response.data.summary || 'Google Calendar'
+          },
           attendees: (event.attendees || []).map(a => ({
             email: a.email,
             displayName: a.displayName,
