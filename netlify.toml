@@ -1,2 +1,7 @@
 [build]
 functions = "functions"
+
+# Schedule the function to run every 5 days (7 days is max lifetime of Gmail watch)
+[[functions]]
+  function = "renew-gmail-watch"
+  schedule = "0 0 */5 * *"

@@ -11,6 +11,7 @@
   "description": "",
   "dependencies": {
     "airtable": "^0.12.2",
+    "googleapis": "^128.0.0",
     "node-fetch": "^2.7.0"
   }
 }
