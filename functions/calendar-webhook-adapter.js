@@ -4,6 +4,9 @@ const fetch = require('node-fetch');
 exports.handler = async function(event, context) {
   try {
     console.log('Received Calendar webhook');
+    console.log('Method:', event.httpMethod);
+    console.log('Headers:', JSON.stringify(event.headers, null, 2));
+    console.log('Body:', event.body || '(no body)');
     
     // Google Calendar notifications come as headers, not JSON body
     const headers = event.headers;
@@ -45,6 +48,8 @@ exports.handler = async function(event, context) {
         timestamp: new Date().toISOString()
       };
       
+      console.log('Forwarding to Supabase with payload:', JSON.stringify(payload));
+      
       // Forward the structured payload to the Supabase function
       const response = await fetch('https://efazuvegwxouysfcgwja.supabase.co/functions/v1/calendar', {
         method: 'POST',
@@ -54,20 +59,29 @@ exports.handler = async function(event, context) {
         body: JSON.stringify(payload)
       });
       
+      const responseText = await response.text();
+      console.log('Supabase response status:', response.status);
+      console.log('Supabase response text:', responseText);
+      
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        result = { raw: responseText };
+      }
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error forwarding to Supabase:', errorText);
+        console.error('Error forwarding to Supabase:', responseText);
         return {
           statusCode: 502,
           body: JSON.stringify({ 
             error: 'Failed to forward to Supabase',
-            details: errorText
+            details: responseText
           })
         };
       }
       
-      const result = await response.json();
-      console.log('Successfully forwarded to Supabase:', JSON.stringify(result));
+      console.log('Successfully forwarded to Supabase');
       
       return {
         statusCode: 200,
@@ -90,7 +104,8 @@ exports.handler = async function(event, context) {
       statusCode: 500,
       body: JSON.stringify({ 
         error: 'Error processing webhook',
-        message: error.message
+        message: error.message,
+        stack: error.stack
       })
     };
   }
