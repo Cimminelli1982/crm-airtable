@@ -51,15 +51,20 @@ exports.handler = async function(event, context) {
       console.log('No existing channels found or error stopping channels:', error.message);
     }
 
-    // Set up a new watch notification
+    // Get the URL of this Netlify site
+    const siteUrl = process.env.URL || 'https://velvety-liger-28d410.netlify.app';
+    const webhookAdapter = `${siteUrl}/.netlify/functions/calendar-webhook-adapter`;
+    
+    console.log(`Using webhook adapter URL: ${webhookAdapter}`);
+
+    // Set up a new watch notification to our adapter function
     const response = await calendar.events.watch({
       calendarId: 'primary', // Use primary calendar, or specific calendar ID
       requestBody: {
         id: `calendar-watch-${Date.now()}`, // Unique ID for this watch
         type: 'web_hook',
-        address: 'https://efazuvegwxouysfcgwja.supabase.co/functions/v1/calendar',
+        address: webhookAdapter,
         params: { 
-          // Add the following header to help Supabase function understand the format
           ttl: '604800' // 7 days in seconds
         }
       }
@@ -83,7 +88,7 @@ exports.handler = async function(event, context) {
         expiration: response.data.expiration ? 
           new Date(parseInt(response.data.expiration)).toISOString() : 
           'Not provided',
-        info: 'Calendar notifications will be sent directly to the Supabase function'
+        webhookAdapter: webhookAdapter
       })
     };
   } catch (error) {
