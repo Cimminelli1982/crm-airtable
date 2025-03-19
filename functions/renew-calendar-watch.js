@@ -31,13 +31,37 @@ exports.handler = async function(event, context) {
     // Initialize Calendar API client
     const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
 
-    // For Calendar API, we need to use web_hook type and properly formatted notification endpoint
+    // First, stop any existing watches to prevent duplicate notifications
+    try {
+      const channels = await calendar.channels.list();
+      if (channels && channels.data && channels.data.items) {
+        for (const channel of channels.data.items) {
+          if (channel.resourceId) {
+            await calendar.channels.stop({
+              requestBody: {
+                id: channel.id,
+                resourceId: channel.resourceId
+              }
+            });
+            console.log(`Stopped existing channel: ${channel.id}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.log('No existing channels found or error stopping channels:', error.message);
+    }
+
+    // Set up a new watch notification
     const response = await calendar.events.watch({
       calendarId: 'primary', // Use primary calendar, or specific calendar ID
       requestBody: {
         id: `calendar-watch-${Date.now()}`, // Unique ID for this watch
         type: 'web_hook',
-        address: 'https://efazuvegwxouysfcgwja.supabase.co/functions/v1/calendar'
+        address: 'https://efazuvegwxouysfcgwja.supabase.co/functions/v1/calendar',
+        params: { 
+          // Add the following header to help Supabase function understand the format
+          ttl: '604800' // 7 days in seconds
+        }
       }
     });
 
@@ -47,6 +71,7 @@ exports.handler = async function(event, context) {
     if (response.data.expiration) {
       const expirationDate = new Date(parseInt(response.data.expiration));
       console.log('Watch will expire on:', expirationDate.toISOString());
+      console.log('Days until expiration:', Math.round((expirationDate - new Date()) / (1000 * 60 * 60 * 24)));
     }
 
     return {
@@ -57,7 +82,8 @@ exports.handler = async function(event, context) {
         resourceId: response.data.resourceId,
         expiration: response.data.expiration ? 
           new Date(parseInt(response.data.expiration)).toISOString() : 
-          'Not provided'
+          'Not provided',
+        info: 'Calendar notifications will be sent directly to the Supabase function'
       })
     };
   } catch (error) {
