@@ -3,3 +3,6 @@
 
 [functions.renew-gmail-watch]
   schedule = "0 0 */5 * *"
+
+[functions.renew-calendar-watch]
+  schedule = "0 0 */5 * *"
