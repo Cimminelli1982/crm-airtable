@@ -15,9 +15,9 @@ exports.handler = async function(event, context) {
       'https://developers.google.com/oauthplayground' // Redirect URI used by OAuth Playground
     );
 
-    // Set credentials using refresh token
+    // Set credentials using refresh token - use calendar-specific token
     oAuth2Client.setCredentials({
-      refresh_token: process.env.REFRESH_TOKEN
+      refresh_token: process.env.CALENDAR_REFRESH_TOKEN
     });
 
     // Get a new access token
@@ -31,21 +31,13 @@ exports.handler = async function(event, context) {
     // Initialize Calendar API client
     const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
 
-    // Topic name in the format projects/{PROJECT_ID}/topics/{TOPIC_NAME}
-    const fullTopicName = `projects/${projectId}/topics/${topicName}`;
-    
-    console.log(`Full topic name: ${fullTopicName}`);
-    
-    // Send watch request
+    // For Calendar API, we need to use web_hook type and properly formatted notification endpoint
     const response = await calendar.events.watch({
       calendarId: 'primary', // Use primary calendar, or specific calendar ID
       requestBody: {
         id: `calendar-watch-${Date.now()}`, // Unique ID for this watch
-        type: 'pubsub',
-        address: fullTopicName,
-        params: {
-          ttl: '604800' // 7 days in seconds
-        }
+        type: 'web_hook',
+        address: 'https://efazuvegwxouysfcgwja.supabase.co/functions/v1/calendar'
       }
     });
 
